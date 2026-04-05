@@ -2,24 +2,24 @@ package ratelimiter;
 
 public class RateLimiterConfig {
 
-    private final int capacity;
-    private final double refillRate;
+    private final int maxRequests;
+    private final long windowSizeMs;
 
-    public RateLimiterConfig(int capacity, double refillRate) {
-        this.capacity = capacity;
-        this.refillRate = refillRate;
+    public RateLimiterConfig(int maxRequests, long windowSizeMs) {
+        this.maxRequests = maxRequests;
+        this.windowSizeMs = windowSizeMs;
     }
 
-    public int getCapacity() {
-        return capacity;
+    public int getMaxRequests() {
+        return maxRequests;
     }
 
-    public double getRefillRate() {
-        return refillRate;
+    public long getWindowSizeMs() {
+        return windowSizeMs;
     }
 
     @Override
     public String toString() {
-        return "RateLimiterConfig{capacity=" + capacity + ", refillRate=" + refillRate + "}";
+        return "RateLimiterConfig{maxRequests=" + maxRequests + ", windowSizeMs=" + windowSizeMs + "}";
     }
 }

@@ -2,24 +2,16 @@ package ratelimiter;
 
 public class RateLimiter {
 
-    private final BucketManager bucketManager;
-    private final RateLimiterConfig config;
+    private final RateLimitPolicy policy;
+    private final KeyStrategy keyStrategy;
 
-    public RateLimiter(RateLimiterConfig config) {
-        this(config, new SystemClock());
+    public RateLimiter(RateLimitPolicy policy, KeyStrategy keyStrategy) {
+        this.policy = policy;
+        this.keyStrategy = keyStrategy;
     }
 
-    public RateLimiter(RateLimiterConfig config, Clock clock) {
-        this.config = config;
-        this.bucketManager = new BucketManager(config, clock);
-    }
-
-    public boolean allowRequest(String userId) {
-        TokenBucket bucket = bucketManager.getBucket(userId);
-        return bucket.allowRequest();
-    }
-
-    public RateLimiterConfig getConfig() {
-        return config;
+    public boolean allowRequest(Request request) {
+        String key = keyStrategy.resolveKey(request);
+        return policy.allowRequest(key);
     }
 }

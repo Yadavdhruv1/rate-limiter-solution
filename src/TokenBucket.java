@@ -1,54 +1,51 @@
 package ratelimiter;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class TokenBucket implements RateLimitPolicy {
 
     private final int capacity;
-    private double tokens;
-    private final double refillRate;
-    private long lastRefillTime;
-    private final ReentrantLock lock;
+    private final double refillRatePerMs;
     private final Clock clock;
+    private final ConcurrentHashMap<String, BucketData> buckets = new ConcurrentHashMap<>();
 
-    public TokenBucket(int capacity, double refillRate, Clock clock) {
-        this.capacity = capacity;
-        this.tokens = capacity;
-        this.refillRate = refillRate;
+    public TokenBucket(RateLimiterConfig config, Clock clock) {
+        this.capacity = config.getMaxRequests();
+        this.refillRatePerMs = config.getMaxRequests() / (double) config.getWindowSizeMs();
         this.clock = clock;
-        this.lastRefillTime = clock.now();
-        this.lock = new ReentrantLock();
     }
 
     @Override
-    public boolean allowRequest() {
-        lock.lock();
+    public boolean allowRequest(String key) {
+        BucketData bucket = buckets.computeIfAbsent(key, k -> new BucketData(capacity, clock.now()));
+        bucket.lock.lock();
         try {
-            refill();
-            if (tokens >= 1) {
-                tokens -= 1;
+            long now = clock.now();
+            long elapsed = now - bucket.lastRefillTime;
+            if (elapsed > 0) {
+                bucket.tokens = Math.min(capacity, bucket.tokens + elapsed * refillRatePerMs);
+                bucket.lastRefillTime = now;
+            }
+
+            if (bucket.tokens >= 1) {
+                bucket.tokens -= 1;
                 return true;
             }
             return false;
         } finally {
-            lock.unlock();
+            bucket.lock.unlock();
         }
     }
 
-    private void refill() {
-        long now = clock.now();
-        double elapsed = (now - lastRefillTime) / 1_000_000_000.0;
-        if (elapsed > 0) {
-            tokens = Math.min(capacity, tokens + elapsed * refillRate);
-            lastRefillTime = now;
+    private static class BucketData {
+        double tokens;
+        long lastRefillTime;
+        ReentrantLock lock = new ReentrantLock();
+
+        BucketData(int capacity, long now) {
+            this.tokens = capacity;
+            this.lastRefillTime = now;
         }
-    }
-
-    public double getTokens() {
-        return tokens;
-    }
-
-    public int getCapacity() {
-        return capacity;
     }
 }
